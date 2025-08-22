@@ -1,0 +1,21 @@
+{
+  "enabled": true,
+  "name": "Prompt-Response Capture & Analysis",
+  "description": "Monitors conversation files to capture prompt-response pairs, extract metadata, and analyze patterns every 5 prompts for continuous improvement",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "*.txt",
+      "*.md",
+      "*.log",
+      "conversations/*",
+      "chats/*",
+      "prompts/*"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Analyze the recent file changes for prompt-response pairs. For each pair: 1) Capture and summarize if needed (prompts ≤4 lines, responses ≤8 lines), 2) Extract technical metadata (timestamp, character/word counts, session ID), semantic metadata (keywords, entities, topics, sentiment), and linking metadata (references, position), 3) After every 5 prompts, analyze context continuity, detect missing context, suggest improvements, flag redundancy, and generate ideal prompt versions. Store findings to build knowledge base of patterns, missing details, and high-performing structures."
+  }
+}

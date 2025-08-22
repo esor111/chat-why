@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dual User Chat Test - Ishwor & Bhuwan</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .user-selector {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .user-btn {
+            padding: 0.5rem 1rem;
+            border: 2px solid white;
+            background: transparent;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .user-btn.active {
+            background: white;
+            color: #2c3e50;
+        }
+        
+        .user-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .chat-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .user-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 2px solid #ddd;
+            background: white;
+        }
+        
+        .user-panel:last-child {
+            border-right: none;
+        }
+        
+        .user-header {
+            padding: 1rem;
+            background: #ecf0f1;
+            border-bottom: 1px solid #ddd;
+            text-align: center;
+        }
+        
+        .user-header.ishwor {
+            background: #e8f5e8;
+        }
+        
+        .user-header.bhuwan {
+            background: #e8f0ff;
+        }
+        
+        .conversation-selector {
+            padding: 1rem;
+            border-bottom: 1px solid #ddd;
+            background: #f8f9fa;
+        }
+        
+        .conversation-list {
+            max-height: 150px;
+            overflow-y: auto;
+            margin-top: 0.5rem;
+        }
+        
+        .conversation-item {
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .conversation-item:hover {
+            background: #f0f0f0;
+        }
+        
+        .conversation-item.selected {
+            background: #3498db;
+            color: white;
+        }
+        
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            background: #fafafa;
+        }
+        
+        .message {
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            border-radius: 8px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        
+        .message.own {
+            background: #3498db;
+            color: white;
+            margin-left: auto;
+        }
+        
+        .message.other {
+            background: white;
+            border: 1px solid #ddd;
+        }
+        
+        .message-meta {
+            font-size: 0.7rem;
+            opacity: 0.8;
+            margin-top: 0.25rem;
+        }
+        
+        .message-input {
+            padding: 1rem;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 0.5rem;
+            background: white;
+        }
+        
+        .message-input input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        .send-btn {
+            padding: 0.75rem 1.5rem;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .send-btn:hover {
+            background: #2980b9;
+        }
+        
+        .send-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            padding: 0.5rem;
+            margin: 0.5rem 0;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .create-chat-btn {
+            padding: 0.5rem 1rem;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0.25rem;
+            font-size: 0.9rem;
+        }
+        
+        .create-chat-btn:hover {
+            background: #219a52;
+        }
+        
+        .connection-status {
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .connection-status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .connection-status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>💬 Dual User Chat Test</h1>
+        <div class="user-selector">
+            <button class="user-btn active" onclick="switchUser('ishwor')">Ishwor</button>
+            <button class="user-btn" onclick="switchUser('bhuwan')">Bhuwan</button>
+            <div class="connection-status disconnected" id="connectionStatus">Disconnected</div>
+        </div>
+    </div>
+    
+    <div class="chat-container">
+        <!-- Ishwor's Panel -->
+        <div class="user-panel" id="ishworPanel">
+            <div class="user-header ishwor">
+                <h3>👤 Ishwor</h3>
+                <div>ID: afc70db3-6f43-4882-92fd-4715f25ffc95</div>
+                <div>KahaID: U-8C695E</div>
+                <div id="ishworStatus"></div>
+            </div>
+            
+            <div class="conversation-selector">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <strong>Conversations</strong>
+                    <div>
+                        <button class="create-chat-btn" onclick="createDirectChat('ishwor')">New 1-on-1</button>
+                        <button class="create-chat-btn" onclick="createBusinessChat('ishwor')">Business</button>
+                        <button class="create-chat-btn" onclick="loadConversations('ishwor')">Refresh</button>
+                    </div>
+                </div>
+                <div class="conversation-list" id="ishworConversations">
+                    <div class="status info">Click "Refresh" to load conversations</div>
+                </div>
+            </div>
+            
+            <div class="messages-area" id="ishworMessages">
+                <div class="status info">Select a conversation to start chatting</div>
+            </div>
+            
+            <div class="message-input">
+                <input type="text" id="ishworMessageInput" placeholder="Type a message as Ishwor..." disabled>
+                <button class="send-btn" id="ishworSendBtn" onclick="sendMessage('ishwor')" disabled>Send</button>
+            </div>
+        </div>
+        
+        <!-- Bhuwan's Panel -->
+        <div class="user-panel" id="bhuwanPanel">
+            <div class="user-header bhuwan">
+                <h3>👤 Bhuwan</h3>
+                <div>ID: 12345678-1234-4234-8234-123456789012</div>
+                <div>KahaID: U-TEST2</div>
+                <div id="bhuwanStatus"></div>
+            </div>
+            
+            <div class="conversation-selector">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <strong>Conversations</strong>
+                    <div>
+                        <button class="create-chat-btn" onclick="createDirectChat('bhuwan')">New 1-on-1</button>
+                        <button class="create-chat-btn" onclick="createBusinessChat('bhuwan')">Business</button>
+                        <button class="create-chat-btn" onclick="loadConversations('bhuwan')">Refresh</button>
+                    </div>
+                </div>
+                <div class="conversation-list" id="bhuwanConversations">
+                    <div class="status info">Click "Refresh" to load conversations</div>
+                </div>
+            </div>
+            
+            <div class="messages-area" id="bhuwanMessages">
+                <div class="status info">Select a conversation to start chatting</div>
+            </div>
+            
+            <div class="message-input">
+                <input type="text" id="bhuwanMessageInput" placeholder="Type a message as Bhuwan..." disabled>
+                <button class="send-btn" id="bhuwanSendBtn" onclick="sendMessage('bhuwan')" disabled>Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        // User configurations
+        const users = {
+            ishwor: {
+                id: 'afc70db3-6f43-4882-92fd-4715f25ffc95',
+                kahaId: 'U-8C695E',
+                name: 'Ishwor',
+                token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFmYzcwZGIzLTZmNDMtNDg4Mi05MmZkLTQ3MTVmMjVmZmM5NSIsImthaGFJZCI6IlUtOEM2OTVFIiwiaWF0IjoxNzUzMzIzMTU4fQ.9EBmn6ntE7pqjL8EmctLT4MTxiG9VVgvnncAeZxD2yU'
+            },
+            bhuwan: {
+                id: '12345678-1234-4234-8234-123456789012',
+                kahaId: 'U-TEST2',
+                name: 'Bhuwan',
+                token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEyMzQ1Njc4LTEyMzQtNDIzNC04MjM0LTEyMzQ1Njc4OTAxMiIsImthaGFJZCI6IlUtVEVTVDIiLCJpYXQiOjE3NTMzMjMxNTh9.placeholder-token-for-bhuwan'
+            }
+        };
+        
+        const API_BASE = 'http://localhost:3000';
+        let currentUser = 'ishwor';
+        let sockets = {};
+        let selectedConversations = {};
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            authenticateAllUsers();
+            setupMessageInputs();
+        });
+        
+        // Setup message inputs
+        function setupMessageInputs() {
+            ['ishwor', 'bhuwan'].forEach(user => {
+                document.getElementById(`${user}MessageInput`).addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        sendMessage(user);
+                    }
+                });
+            });
+        }
+        
+        // Switch active user
+        function switchUser(user) {
+            currentUser = user;
+            document.querySelectorAll('.user-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+        
+        // Authenticate all users
+        async function authenticateAllUsers() {
+            for (const [userName, userData] of Object.entries(users)) {
+                await authenticateUser(userName, userData);
+                await connectWebSocket(userName, userData);
+            }
+        }
+        
+        // Authenticate single user
+        async function authenticateUser(userName, userData) {
+            try {
+                const response = await fetch(`${API_BASE}/auth/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${userData.token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const user = await response.json();
+                    showStatus(`${userName}Status`, `✅ Authenticated`, 'success');
+                    
+                    // Load conversations for this user
+                    setTimeout(() => loadConversations(userName), 1000);
+                } else {
+                    throw new Error(`Authentication failed: ${response.status}`);
+                }
+            } catch (error) {
+                showStatus(`${userName}Status`, `❌ Auth failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Connect WebSocket for user
+        function connectWebSocket(userName, userData) {
+            if (sockets[userName]) {
+                sockets[userName].disconnect();
+            }
+            
+            sockets[userName] = io(API_BASE, {
+                auth: {
+                    token: userData.token
+                }
+            });
+            
+            sockets[userName].on('connect', () => {
+                document.getElementById('connectionStatus').textContent = 'Connected';
+                document.getElementById('connectionStatus').className = 'connection-status connected';
+            });
+            
+            sockets[userName].on('disconnect', () => {
+                document.getElementById('connectionStatus').textContent = 'Disconnected';
+                document.getElementById('connectionStatus').className = 'connection-status disconnected';
+            });
+            
+            sockets[userName].on('message_received', (data) => {
+                if (selectedConversations[userName] && data.conversationId === selectedConversations[userName]) {
+                    addMessageToUI(userName, data, false);
+                }
+            });
+        }
+        
+        // Load conversations for user
+        async function loadConversations(userName) {
+            const userData = users[userName];
+            
+            try {
+                const response = await fetch(`${API_BASE}/conversations`, {
+                    headers: {
+                        'Authorization': `Bearer ${userData.token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    displayConversations(userName, data.conversations);
+                } else {
+                    throw new Error(`Failed to load conversations: ${response.status}`);
+                }
+            } catch (error) {
+                document.getElementById(`${userName}Conversations`).innerHTML = 
+                    `<div class="status error">Failed to load: ${error.message}</div>`;
+            }
+        }
+        
+        // Display conversations for user
+        function displayConversations(userName, conversations) {
+            const container = document.getElementById(`${userName}Conversations`);
+            
+            if (conversations.length === 0) {
+                container.innerHTML = '<div class="status info">No conversations found. Create a new one!</div>';
+                return;
+            }
+            
+            container.innerHTML = conversations.map(conv => {
+                const participants = conv.participants || [];
+                const otherParticipants = participants.filter(p => p.userId !== users[userName].id);
+                
+                let title = '';
+                if (conv.type === 'direct') {
+                    title = otherParticipants.length > 0 ? 
+                        (otherParticipants[0].user?.name || 'Direct Chat') : 
+                        'Direct Chat';
+                } else if (conv.type === 'group') {
+                    title = conv.name || `Group (${participants.length} members)`;
+                } else if (conv.type === 'business') {
+                    title = conv.business?.name || 'Business Chat';
+                }
+                
+                return `
+                    <div class="conversation-item" onclick="selectConversation('${userName}', '${conv.id}')">
+                        <div style="font-weight: 500;">${title}</div>
+                        <div style="font-size: 0.8rem; color: #666;">${conv.type.toUpperCase()}</div>
+                        <div style="font-size: 0.7rem; color: #999;">${conv.id.substring(0, 8)}...</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Select conversation
+        async function selectConversation(userName, conversationId) {
+            const userData = users[userName];
+            
+            try {
+                const response = await fetch(`${API_BASE}/conversations/${conversationId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${userData.token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    selectedConversations[userName] = conversationId;
+                    
+                    // Update UI
+                    document.querySelectorAll(`#${userName}Conversations .conversation-item`).forEach(item => {
+                        item.classList.remove('selected');
+                    });
+                    event.target.closest('.conversation-item').classList.add('selected');
+                    
+                    // Enable message input
+                    document.getElementById(`${userName}MessageInput`).disabled = false;
+                    document.getElementById(`${userName}SendBtn`).disabled = false;
+                    
+                    // Load messages
+                    loadMessages(userName, conversationId);
+                    
+                    // Join conversation room
+                    if (sockets[userName]) {
+                        sockets[userName].emit('join_conversation', { conversationId });
+                    }
+                } else {
+                    throw new Error(`Failed to load conversation: ${response.status}`);
+                }
+            } catch (error) {
+                alert(`Error selecting conversation: ${error.message}`);
+            }
+        }
+        
+        // Load messages for conversation
+        async function loadMessages(userName, conversationId) {
+            const userData = users[userName];
+            
+            try {
+                const response = await fetch(`${API_BASE}/conversations/${conversationId}/messages`, {
+                    headers: {
+                        'Authorization': `Bearer ${userData.token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    displayMessages(userName, data.messages);
+                } else {
+                    throw new Error(`Failed to load messages: ${response.status}`);
+                }
+            } catch (error) {
+                document.getElementById(`${userName}Messages`).innerHTML = 
+                    `<div class="status error">Failed to load messages: ${error.message}</div>`;
+            }
+        }
+        
+        // Display messages
+        function displayMessages(userName, messages) {
+            const container = document.getElementById(`${userName}Messages`);
+            
+            if (messages.length === 0) {
+                container.innerHTML = '<div class="status info">No messages yet. Start the conversation!</div>';
+                return;
+            }
+            
+            container.innerHTML = messages.map(msg => {
+                const isOwn = msg.senderId === users[userName].id;
+                const senderName = msg.sender?.name || (isOwn ? users[userName].name : 'Other User');
+                const time = new Date(msg.createdAt).toLocaleTimeString();
+                
+                return `
+                    <div class="message ${isOwn ? 'own' : 'other'}">
+                        <div>${msg.content}</div>
+                        <div class="message-meta">${senderName} - ${time}</div>
+                    </div>
+                `;
+            }).join('');
+            
+            // Scroll to bottom
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        // Add message to UI
+        function addMessageToUI(userName, message, isOwn) {
+            const container = document.getElementById(`${userName}Messages`);
+            const senderName = message.sender?.name || (isOwn ? users[userName].name : 'Other User');
+            const time = new Date(message.createdAt || new Date()).toLocaleTimeString();
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isOwn ? 'own' : 'other'}`;
+            messageDiv.innerHTML = `
+                <div>${message.content}</div>
+                <div class="message-meta">${senderName} - ${time}</div>
+            `;
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        // Send message
+        async function sendMessage(userName) {
+            const input = document.getElementById(`${userName}MessageInput`);
+            const content = input.value.trim();
+            const conversationId = selectedConversations[userName];
+            
+            if (!content || !conversationId) return;
+            
+            const userData = users[userName];
+            
+            try {
+                const response = await fetch(`${API_BASE}/conversations/${conversationId}/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${userData.token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: content,
+                        type: 'text'
+                    })
+                });
+                
+                if (response.ok) {
+                    const message = await response.json();
+                    addMessageToUI(userName, message, true);
+                    input.value = '';
+                    
+                    // Refresh conversations for both users
+                    setTimeout(() => {
+                        loadConversations('ishwor');
+                        loadConversations('bhuwan');
+                    }, 500);
+                } else {
+                    throw new Error(`Failed to send message: ${response.status}`);
+                }
+            } catch (error) {
+                alert(`Error sending message: ${error.message}`);
+            }
+        }
+        
+        // Create direct chat
+        async function createDirectChat(userName) {
+            const userData = users[userName];
+            const otherUser = userName === 'ishwor' ? users.bhuwan : users.ishwor;
+            
+            try {
+                const response = await fetch(`${API_BASE}/conversations/direct`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${userData.token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        targetUserId: otherUser.id
+                    })
+                });
+                
+                if (response.ok) {
+                    loadConversations(userName);
+                    alert('Direct conversation created successfully!');
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.message || `Failed to create conversation: ${response.status}`);
+                }
+            } catch (error) {
+                alert(`Error creating direct chat: ${error.message}`);
+            }
+        }
+        
+        // Create business chat
+        async function createBusinessChat(userName) {
+            const userData = users[userName];
+            const businessId = 'afc70db3-6f43-4882-92fd-4715f25ffc95';
+            
+            try {
+                const response = await fetch(`${API_BASE}/conversations/business`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${userData.token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        businessId: businessId
+                    })
+                });
+                
+                if (response.ok) {
+                    loadConversations(userName);
+                    alert('Business conversation created successfully!');
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.message || `Failed to create conversation: ${response.status}`);
+                }
+            } catch (error) {
+                alert(`Error creating business chat: ${error.message}`);
+            }
+        }
+        
+        // Utility function
+        function showStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+    </script>
+</body>
+</html>

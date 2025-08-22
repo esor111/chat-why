@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Backend Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .section h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .messages {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background: #f9f9f9;
+        }
+
+        .message {
+            margin: 5px 0;
+            padding: 8px;
+            border-radius: 4px;
+            background: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🚀 Chat Backend Test</h1>
+
+        <!-- Authentication Section -->
+        <div class="section">
+            <h3>🔐 Authentication</h3>
+            <input type="text" id="jwtToken" placeholder="JWT Token"
+                value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFmYzcwZGIzLTZmNDMtNDg4Mi05MmZkLTQ3MTVmMjVmZmM5NSIsImthaGFJZCI6IlUtOEM2OTVFIiwiaWF0IjoxNzUzMzIzMTU4fQ.9EBmn6ntE7pqjL8EmctLT4MTxiG9VVgvnncAeZxD2yU">
+            <button onclick="authenticate()">Authenticate</button>
+            <div id="authStatus"></div>
+        </div>
+
+        <!-- Quick Tests Section -->
+        <div class="section">
+            <h3>⚡ Quick Tests</h3>
+            <button onclick="testHealth()">Test Backend Health</button>
+            <button onclick="testAuth()">Test Auth Endpoint</button>
+            <button onclick="loadConversations()">Load Conversations</button>
+            <button onclick="createDirectChat()">Create 1-on-1 Chat</button>
+            <button onclick="createBusinessChat()">Create Business Chat</button>
+            <div id="testResults"></div>
+        </div>
+
+        <!-- Conversations Section -->
+        <div class="section">
+            <h3>💬 Conversations</h3>
+            <div id="conversationsList"></div>
+        </div>
+
+        <!-- Messaging Section -->
+        <div class="section">
+            <h3>📨 Send Message</h3>
+            <input type="text" id="conversationId" placeholder="Conversation ID">
+            <textarea id="messageContent" placeholder="Message content" rows="3"></textarea>
+            <button onclick="sendMessage()">Send Message</button>
+            <div id="messageStatus"></div>
+        </div>
+
+        <!-- Message History -->
+        <div class="section">
+            <h3>📜 Message History</h3>
+            <input type="text" id="historyConversationId" placeholder="Conversation ID">
+            <button onclick="loadMessages()">Load Messages</button>
+            <div id="typingIndicator" style="
+                padding: 0.5rem;
+                font-style: italic;
+                color: #666;
+                font-size: 0.9rem;
+                min-height: 1.5rem;
+                display: none;
+            "></div>
+            <div class="messages" id="messageHistory"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const API_BASE = 'http://localhost:3000';
+        let authToken = null;
+        let currentUser = null;
+        let socket = null;
+        let currentConversationId = null;
+
+        // Authentication
+        async function authenticate() {
+            const token = document.getElementById('jwtToken').value.trim();
+            if (!token) {
+                showStatus('authStatus', 'Please enter a JWT token', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const user = await response.json();
+                    currentUser = user;
+                    authToken = token;
+                    showStatus('authStatus', `✅ Authenticated as: ${user.id} (${user.kahaId})`, 'success');
+
+                    // Connect WebSocket for real-time messaging
+                    connectWebSocket();
+                } else {
+                    throw new Error(`Authentication failed: ${response.status}`);
+                }
+            } catch (error) {
+                showStatus('authStatus', `❌ Authentication failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Test backend health
+        async function testHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                showStatus('testResults', `✅ Backend Health: ${data.status} - Uptime: ${data.uptime}s`, 'success');
+            } catch (error) {
+                showStatus('testResults', `❌ Backend Health Check Failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Test auth endpoint
+        async function testAuth() {
+            if (!authToken) {
+                showStatus('testResults', '❌ Please authenticate first', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/health`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await response.json();
+                showStatus('testResults', `✅ Auth Service: ${data.status}`, 'success');
+            } catch (error) {
+                showStatus('testResults', `❌ Auth Test Failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Load conversations
+        async function loadConversations() {
+            if (!authToken) {
+                showStatus('testResults', '❌ Please authenticate first', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/conversations`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    displayConversations(data.conversations);
+                    showStatus('testResults', `✅ Loaded ${data.conversations.length} conversations`, 'success');
+                } else {
+                    throw new Error(`Failed to load conversations: ${response.status}`);
+                }
+            } catch (error) {
+                showStatus('testResults', `❌ Load Conversations Failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Available users for selection
+        const availableUsers = [
+            { id: 'afc70db3-6f43-4882-92fd-4715f25ffc95', name: 'Ishwor (Main User)', kahaId: 'U-8C695E' },
+            { id: '12345678-1234-4234-8234-123456789012', name: 'Bhuwan (Test User 2)', kahaId: 'U-TEST2' },
+            { id: '87654321-4321-4321-4321-210987654321', name: 'Charlie (Test User 3)', kahaId: 'U-TEST3' },
+            { id: '11111111-2222-4333-8444-555555555555', name: 'Diana (Test User 4)', kahaId: 'U-TEST4' },
+            { id: '99999999-8888-4777-8666-555555555555', name: 'Eve (Test User 5)', kahaId: 'U-TEST5' }
+        ];
+
+        // Create direct chat with user selection
+        async function createDirectChat() {
+            if (!authToken) {
+                showStatus('testResults', '❌ Please authenticate first', 'error');
+                return;
+            }
+
+            // Create user selection modal
+            const modal = createUserSelectionModal();
+            document.body.appendChild(modal);
+        }
+
+        // Create user selection modal
+        function createUserSelectionModal() {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+            `;
+
+            const modalContent = document.createElement('div');
+            modalContent.style.cssText = `
+                background: white;
+                padding: 2rem;
+                border-radius: 8px;
+                max-width: 500px;
+                width: 90%;
+                max-height: 80vh;
+                overflow-y: auto;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            `;
+
+            modalContent.innerHTML = `
+                <h3 style="margin-top: 0; color: #2c3e50; text-align: center;">👥 Select User to Chat With</h3>
+                <p style="color: #666; margin-bottom: 1.5rem; text-align: center;">Choose a user to start a direct conversation:</p>
+                
+                <div id="userList" style="margin-bottom: 1.5rem;">
+                    ${availableUsers.map(user => `
+                        <div class="user-option" onclick="selectUserForChat('${user.id}')" style="
+                            padding: 1rem;
+                            border: 2px solid #ddd;
+                            border-radius: 8px;
+                            margin-bottom: 0.75rem;
+                            cursor: pointer;
+                            transition: all 0.3s;
+                            background: #f9f9f9;
+                        " onmouseover="this.style.background='#e3f2fd'; this.style.borderColor='#3498db';" 
+                           onmouseout="this.style.background='#f9f9f9'; this.style.borderColor='#ddd';">
+                            <div style="font-weight: 500; color: #2c3e50; font-size: 1.1rem;">${user.name}</div>
+                            <div style="font-size: 0.9rem; color: #666; margin-top: 0.25rem;">ID: ${user.id}</div>
+                            <div style="font-size: 0.8rem; color: #999; margin-top: 0.25rem;">KahaID: ${user.kahaId}</div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div style="display: flex; gap: 1rem; justify-content: center;">
+                    <button onclick="closeUserSelectionModal()" style="
+                        padding: 0.75rem 1.5rem;
+                        border: 1px solid #ddd;
+                        background: white;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 1rem;
+                    " onmouseover="this.style.background='#f5f5f5';" 
+                       onmouseout="this.style.background='white';">Cancel</button>
+                </div>
+            `;
+
+            modal.appendChild(modalContent);
+            return modal;
+        }
+
+        // Select user for chat
+        async function selectUserForChat(targetUserId) {
+            closeUserSelectionModal();
+
+            const selectedUser = availableUsers.find(user => user.id === targetUserId);
+
+            try {
+                const response = await fetch(`${API_BASE}/conversations/direct`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ targetUserId })
+                });
+
+                if (response.ok) {
+                    const conversation = await response.json();
+                    showStatus('testResults', `✅ Created direct chat with ${selectedUser.name}: ${conversation.id}`, 'success');
+                    loadConversations(); // Refresh list
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.message || `Failed: ${response.status}`);
+                }
+            } catch (error) {
+                showStatus('testResults', `❌ Create Direct Chat Failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Close user selection modal
+        function closeUserSelectionModal() {
+            const modal = document.querySelector('div[style*="position: fixed"]');
+            if (modal) {
+                document.body.removeChild(modal);
+            }
+        }
+
+        // Create business chat
+        async function createBusinessChat() {
+            if (!authToken) {
+                showStatus('testResults', '❌ Please authenticate first', 'error');
+                return;
+            }
+
+            const businessId = 'afc70db3-6f43-4882-92fd-4715f25ffc95';
+
+            try {
+                const response = await fetch(`${API_BASE}/conversations/business`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ businessId })
+                });
+
+                if (response.ok) {
+                    const conversation = await response.json();
+                    showStatus('testResults', `✅ Created business chat: ${conversation.id}`, 'success');
+                    loadConversations(); // Refresh list
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.message || `Failed: ${response.status}`);
+                }
+            } catch (error) {
+                showStatus('testResults', `❌ Create Business Chat Failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Send message
+        async function sendMessage() {
+            if (!authToken) {
+                showStatus('messageStatus', '❌ Please authenticate first', 'error');
+                return;
+            }
+
+            const conversationId = document.getElementById('conversationId').value.trim();
+            const content = document.getElementById('messageContent').value.trim();
+
+            if (!conversationId || !content) {
+                showStatus('messageStatus', '❌ Please enter conversation ID and message', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/conversations/${conversationId}/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ content, type: 'text' })
+                });
+
+                if (response.ok) {
+                    const message = await response.json();
+                    showStatus('messageStatus', `✅ Message sent: ${message.id}`, 'success');
+                    document.getElementById('messageContent').value = '';
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.message || `Failed: ${response.status}`);
+                }
+            } catch (error) {
+                showStatus('messageStatus', `❌ Send Message Failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Load messages
+        async function loadMessages() {
+            if (!authToken) {
+                showStatus('messageStatus', '❌ Please authenticate first', 'error');
+                return;
+            }
+
+            const conversationId = document.getElementById('historyConversationId').value.trim();
+            if (!conversationId) {
+                showStatus('messageStatus', '❌ Please enter conversation ID', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/conversations/${conversationId}/messages`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    displayMessages(data.messages);
+
+                    // Join conversation room for real-time updates
+                    joinConversationRoom(conversationId);
+                    showStatus('messageStatus', `✅ Loaded ${data.messages.length} messages - Real-time updates enabled`, 'success');
+                } else {
+                    throw new Error(`Failed to load messages: ${response.status}`);
+                }
+            } catch (error) {
+                showStatus('messageStatus', `❌ Load Messages Failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Display conversations
+        function displayConversations(conversations) {
+            const container = document.getElementById('conversationsList');
+
+            if (conversations.length === 0) {
+                container.innerHTML = '<div class="info">No conversations found</div>';
+                return;
+            }
+
+            container.innerHTML = conversations.map(conv => {
+                const participants = conv.participants || [];
+                const otherParticipants = participants.filter(p => p.userId !== currentUser.id);
+
+                let title = '';
+                if (conv.type === 'direct') {
+                    title = otherParticipants.length > 0 ?
+                        (otherParticipants[0].user?.name || otherParticipants[0].userId) :
+                        'Direct Chat';
+                } else if (conv.type === 'group') {
+                    title = conv.name || `Group (${participants.length} members)`;
+                } else if (conv.type === 'business') {
+                    title = conv.business?.name || 'Business Chat';
+                }
+
+                return `
+                    <div class="message">
+                        <strong>${title}</strong> (${conv.type.toUpperCase()})
+                        <br>ID: ${conv.id}
+                        <br>Created: ${new Date(conv.createdAt).toLocaleString()}
+                        <button onclick="document.getElementById('conversationId').value='${conv.id}'; document.getElementById('historyConversationId').value='${conv.id}'">Select</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Display messages
+        function displayMessages(messages) {
+            const container = document.getElementById('messageHistory');
+
+            if (messages.length === 0) {
+                container.innerHTML = '<div class="info">No messages found</div>';
+                return;
+            }
+
+            container.innerHTML = messages.map(msg => {
+                const senderName = msg.sender?.name || msg.senderId;
+                const time = new Date(msg.createdAt).toLocaleString();
+
+                return `
+                    <div class="message">
+                        <strong>${senderName}</strong> - ${time}
+                        <br>${msg.content}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Utility function
+        function showStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        // WebSocket connection
+        function connectWebSocket() {
+            if (socket) {
+                socket.disconnect();
+            }
+
+            socket = io(API_BASE, {
+                auth: {
+                    token: authToken
+                }
+            });
+
+            socket.on('connect', () => {
+                console.log('✅ WebSocket connected');
+                showStatus('authStatus', `✅ Authenticated as: ${currentUser.id} (${currentUser.kahaId}) - Real-time connected`, 'success');
+            });
+
+            socket.on('disconnect', () => {
+                console.log('❌ WebSocket disconnected');
+            });
+
+            // Listen for new messages
+            socket.on('new_message', (data) => {
+                console.log('📨 New message received:', data);
+                if (currentConversationId && data.conversationId === currentConversationId) {
+                    // Add message to UI in real-time
+                    addMessageToHistory(data);
+                }
+            });
+
+            socket.on('message_received', (data) => {
+                console.log('📨 Message received event:', data);
+                if (currentConversationId && data.conversationId === currentConversationId) {
+                    addMessageToHistory(data);
+                }
+            });
+
+            // Typing indicators
+            socket.on('typing_start', (data) => {
+                console.log('⌨️ User started typing:', data);
+                if (currentConversationId && data.conversationId === currentConversationId) {
+                    showTypingIndicator(data.userName || data.userId);
+                }
+            });
+
+            socket.on('typing_stop', (data) => {
+                console.log('⌨️ User stopped typing:', data);
+                if (currentConversationId && data.conversationId === currentConversationId) {
+                    hideTypingIndicator();
+                }
+            });
+        }
+
+        // Add message to history in real-time
+        function addMessageToHistory(message) {
+            const container = document.getElementById('messageHistory');
+            const senderName = message.sender?.name || message.senderId || 'Unknown';
+            const time = new Date(message.createdAt || message.timestamp || new Date()).toLocaleString();
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            messageDiv.innerHTML = `
+                <strong>${senderName}</strong> - ${time}
+                <br>${message.content}
+            `;
+
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+
+            // Show notification
+            showStatus('messageStatus', `📨 New message from ${senderName}`, 'info');
+        }
+
+        // Join conversation room when loading messages
+        function joinConversationRoom(conversationId) {
+            if (socket && conversationId) {
+                currentConversationId = conversationId;
+                socket.emit('join_conversation', { conversationId });
+                console.log(`🏠 Joined conversation room: ${conversationId}`);
+            }
+        }
+
+        // Typing indicator functions
+        function showTypingIndicator(userName) {
+            const indicator = document.getElementById('typingIndicator');
+            indicator.textContent = `${userName} is typing...`;
+            indicator.style.display = 'block';
+        }
+
+        function hideTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            indicator.style.display = 'none';
+        }
+
+        // Typing event handlers
+        let typingTimer = null;
+        let isTyping = false;
+
+        function handleTypingStart() {
+            if (!isTyping && currentConversationId && socket) {
+                isTyping = true;
+                socket.emit('start_typing', { conversationId: currentConversationId });
+                console.log('⌨️ Started typing');
+            }
+
+            // Clear existing timer
+            if (typingTimer) {
+                clearTimeout(typingTimer);
+            }
+
+            // Set timer to stop typing after 2 seconds of inactivity
+            typingTimer = setTimeout(() => {
+                if (isTyping && currentConversationId && socket) {
+                    isTyping = false;
+                    socket.emit('stop_typing', { conversationId: currentConversationId });
+                    console.log('⌨️ Stopped typing (timeout)');
+                }
+            }, 2000);
+        }
+
+        function handleTypingStop() {
+            if (isTyping && currentConversationId && socket) {
+                isTyping = false;
+                socket.emit('stop_typing', { conversationId: currentConversationId });
+                console.log('⌨️ Stopped typing (manual)');
+            }
+
+            if (typingTimer) {
+                clearTimeout(typingTimer);
+                typingTimer = null;
+            }
+        }
+
+        // Auto-authenticate on load
+        window.onload = function () {
+            const token = document.getElementById('jwtToken').value;
+            if (token) {
+                authenticate();
+            }
+
+            // Add typing event listeners to message input
+            const messageInput = document.getElementById('messageContent');
+            if (messageInput) {
+                messageInput.addEventListener('input', handleTypingStart);
+                messageInput.addEventListener('blur', handleTypingStop);
+                messageInput.addEventListener('keypress', function (e) {
+                    if (e.key === 'Enter') {
+                        handleTypingStop();
+                    }
+                });
+            }
+        };
+    </script>
+</body>
+
+</html>
